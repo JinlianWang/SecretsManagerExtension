@@ -1,11 +1,10 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -17,12 +16,24 @@ type SecretResponse struct {
 	SecretValue string `json:"secretValue"`
 }
 
-// Handler handles the Lambda function invocation
-func Handler(ctx context.Context) (SecretResponse, error) {
+// Handler handles the HTTP request
+func Handler(w http.ResponseWriter, r *http.Request) {
+	// Get the secret ID from the URL path
+	segments := strings.Split(r.URL.Path, "/")
+	secretID := strings.Join(segments[2:], "/") // join every path component after the /secrets/ prefix
+	if secretID == "" {
+		http.Error(w, "Missing secretID parameter", http.StatusBadRequest)
+		return
+	}
+
+	// Print the secret ID for debugging
+	fmt.Println("Secret ID:", secretID)
+
 	// Initialize the AWS session
 	sess, err := session.NewSession()
 	if err != nil {
-		return SecretResponse{}, err
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	// Initialize the Secrets Manager client
@@ -30,11 +41,12 @@ func Handler(ctx context.Context) (SecretResponse, error) {
 
 	// Get the secret value from AWS Secrets Manager
 	input := &secretsmanager.GetSecretValueInput{
-		SecretId: aws.String(os.Getenv("SECRET_ID")),
+		SecretId: aws.String(secretID),
 	}
 	result, err := svc.GetSecretValue(input)
 	if err != nil {
-		return SecretResponse{}, err
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	// Construct the secret response
@@ -42,22 +54,13 @@ func Handler(ctx context.Context) (SecretResponse, error) {
 		SecretValue: *result.SecretString,
 	}
 
-	// Return the secret response
-	return secretResponse, nil
+	// Write the secret response as JSON
+	json.NewEncoder(w).Encode(secretResponse)
 }
 
 func main() {
 	// Set up the HTTP server
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		response, err := Handler(context.Background())
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		// Write the secret response as JSON
-		json.NewEncoder(w).Encode(response)
-	})
+	http.HandleFunc("/secrets/", Handler)
 
 	// Start the HTTP server
 	fmt.Println("Listening on localhost:8080")
