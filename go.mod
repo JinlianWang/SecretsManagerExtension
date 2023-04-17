@@ -1,4 +1,4 @@
-module SecretsManagerExentension
+module SecretsManagerExtension
 
 go 1.17
 
