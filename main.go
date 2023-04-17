@@ -9,10 +9,18 @@ import (
 
 func main() {
 	http.HandleFunc("/event/next", handleNextEvent)
+	http.HandleFunc("/ext-server", handleExtServer)
 
-	log.Println("Starting extension server")
-	if err := http.ListenAndServe(":"+os.Getenv("AWS_LAMBDA_RUNTIME_API"), nil); err != nil {
-		log.Fatal("The HTTP request failed with error %s\n", err)
+	go func() {
+		log.Println("Starting extension server")
+		if err := http.ListenAndServe(":"+os.Getenv("AWS_LAMBDA_RUNTIME_API"), nil); err != nil {
+			log.Fatalf("The HTTP request failed with error %s\n", err)
+		}
+	}()
+
+	log.Println("Starting external HTTP server on port 8080")
+	if err := http.ListenAndServe(":8080", nil); err != nil {
+		log.Fatalf("The HTTP request failed with error %s\n", err)
 	}
 }
 
@@ -32,4 +40,9 @@ func handleNextEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func handleExtServer(w http.ResponseWriter, r *http.Request) {
+	message := "Hello from Lambda extension HTTP server!"
+	fmt.Fprint(w, message)
 }

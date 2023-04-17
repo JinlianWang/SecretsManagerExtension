@@ -58,7 +58,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(secretResponse)
 }
 
-func main() {
+func mainA() {
 	// Set up the HTTP server
 	http.HandleFunc("/secrets/", Handler)
 
